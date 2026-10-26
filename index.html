@@ -35,14 +35,13 @@
 
     // SuperMemo-2 (SM-2) Spaced Repetition Algorithm
     function calculateSM2(rating, repetitions, interval, easeFactor) {
-      // rating: 0 = Again, 1 = Hard, 2 = Good, 3 = Easy
       let newInterval;
       let newRepetitions;
       let newEaseFactor = easeFactor + (0.1 - (3 - rating) * (0.08 + (3 - rating) * 0.02));
 
       if (newEaseFactor < 1.3) newEaseFactor = 1.3;
 
-      if (rating < 1) { // Again / Fail
+      if (rating < 1) { 
         newRepetitions = 0;
         newInterval = 1;
       } else {
@@ -90,7 +89,7 @@
         }
       }, [activeDeck, isFlipped, isProcessingFile]);
 
-      // Handle File Parsing (.pdf, .docx, .txt, .md)
+      // File Parsing (.pdf, .docx, .txt, .md)
       const processFile = async (file) => {
         if (!file) return;
         setIsProcessingFile(true);
@@ -104,14 +103,14 @@
           } else if (fileType === 'pdf') {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let textContent = '';
+            let pageTexts = [];
             for (let i = 1; i <= pdf.numPages; i++) {
               const page = await pdf.getPage(i);
               const content = await page.getTextContent();
               const pageStrings = content.items.map(item => item.str);
-              textContent += pageStrings.join(' ') + '\n\n';
+              pageTexts.push(pageStrings.join(' '));
             }
-            extractedText = textContent;
+            extractedText = pageTexts.join('\n\n');
           } else if (fileType === 'docx') {
             const arrayBuffer = await file.arrayBuffer();
             const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
@@ -122,8 +121,8 @@
             return;
           }
 
-          if (extractedText.trim().length === 0) {
-            alert('Could not extract readable text from this file. If this is a scanned document, please paste the text manually.');
+          if (!extractedText.trim()) {
+            alert('Could not extract readable text from this file. If this is a scanned document, please paste text manually.');
           } else {
             setInputText(prev => prev ? prev + '\n\n' + extractedText : extractedText);
             if (!deckTitle) {
@@ -132,7 +131,7 @@
           }
         } catch (error) {
           console.error("Error reading file:", error);
-          alert('An error occurred while reading the file. Please try pasting the text directly.');
+          alert('An error occurred while reading the file.');
         } finally {
           setIsProcessingFile(false);
         }
@@ -163,42 +162,59 @@
         }
       };
 
-      // Generate Flashcards from Input Text
+      // Improved Multi-Card Text Parser Logic
       const handleGenerateDeck = () => {
         if (!inputText.trim()) return;
 
-        const lines = inputText.split('\n').filter(line => line.trim().length > 0);
+        // Clean text and break into structured chunks
+        let rawChunks = inputText
+          .replace(/\r\n/g, '\n')
+          .split(/\n+|\?|\b(?=\d+[\.\)]\s)/) 
+          .map(chunk => chunk.trim())
+          .filter(chunk => chunk.length > 10);
+
         const generatedCards = [];
 
-        lines.forEach((line, index) => {
-          if (line.includes(':') || line.includes('-')) {
-            const parts = line.split(/:(.+)|-(.+)/).filter(Boolean);
-            if (parts.length >= 2) {
+        rawChunks.forEach((chunk, index) => {
+          // Check for Key-Value pairs like "Concept: Explanation" or "Term - Definition"
+          if (chunk.includes(':') || chunk.includes('–') || chunk.includes(' - ')) {
+            const parts = chunk.split(/[:–]|\s-\s/);
+            if (parts.length >= 2 && parts[0].trim().length < 80) {
               generatedCards.push({
                 id: `card-${Date.now()}-${index}`,
-                front: parts[0].trim(),
-                back: parts.slice(1).join('').trim(),
+                front: parts[0].replace(/^[\d\.\-\*•\s]+/, '').trim(),
+                back: parts.slice(1).join(' ').trim(),
+                repetitions: 0,
+                interval: 1,
+                easeFactor: 2.5,
+                nextReview: new Date().toISOString()
+              });
+              return;
+            }
+          }
+
+          // Fallback: Split long paragraphs by sentence structure into Q&A
+          if (chunk.length > 20) {
+            const cleanText = chunk.replace(/^[\d\.\-\*•\s]+/, '').trim();
+            const words = cleanText.split(' ');
+            if (words.length > 6) {
+              const front = words.slice(0, 5).join(' ') + '...';
+              const back = cleanText;
+              generatedCards.push({
+                id: `card-${Date.now()}-${index}`,
+                front: front,
+                back: back,
                 repetitions: 0,
                 interval: 1,
                 easeFactor: 2.5,
                 nextReview: new Date().toISOString()
               });
             }
-          } else if (line.length > 20) {
-            generatedCards.push({
-              id: `card-${Date.now()}-${index}`,
-              front: `Concept #${generatedCards.length + 1}`,
-              back: line.trim(),
-              repetitions: 0,
-              interval: 1,
-              easeFactor: 2.5,
-              nextReview: new Date().toISOString()
-            });
           }
         });
 
         if (generatedCards.length === 0) {
-          alert("Could not structure flashcards automatically. Ensure your text has concepts separated by colons (:), dashes (-), or line breaks.");
+          alert("Could not extract individual flashcards. Try organizing text with colons (Term: Definition) or bullet points.");
           return;
         }
 
@@ -327,7 +343,6 @@
           ) : (
             /* Creation & Dashboard Workspace */
             <div className="space-y-8">
-              {/* Syllabus Parser Box */}
               <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl space-y-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <i data-lucide="sparkles" className="w-5 h-5 text-indigo-400"></i>
@@ -336,13 +351,12 @@
 
                 <input 
                   type="text"
-                  placeholder="Deck Title (e.g., Computer Networking - Chapter 1)"
+                  placeholder="Deck Title (e.g., Operating Systems - Chapter 1)"
                   value={deckTitle}
                   onChange={(e) => setDeckTitle(e.target.value)}
                   className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
                 />
 
-                {/* Drag and Drop Zone */}
                 <div 
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
@@ -365,13 +379,13 @@
 
                 {isProcessingFile && (
                   <div className="text-center text-xs text-indigo-400 py-2 animate-pulse">
-                    Extracting text from file locally...
+                    Parsing document into separate cards...
                   </div>
                 )}
 
                 <textarea
                   rows="5"
-                  placeholder="Or paste your raw course outline, topics, or notes here... (Format: 'Topic: Explanation' or list items)"
+                  placeholder="Or paste text here... (Format: 'Term: Definition', '1. Concept - Details')"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   className="w-full bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"

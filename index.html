@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syllabi — Active Recall & Spaced Repetition</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; padding: 1.5rem 1rem; }
+    .container { max-width: 680px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .logo-box { display: flex; align-items: center; gap: 0.75rem; }
+    .icon-badge { background: #4f46e5; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: #fff; }
+    p.subtitle { font-size: 0.75rem; color: #94a3b8; }
+    .card-panel { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; padding: 1.25rem; margin-bottom: 1.5rem; }
+    .panel-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    input[type="text"], textarea { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.75rem 1rem; color: #f8fafc; font-size: 0.875rem; margin-bottom: 1rem; outline: none; }
+    input[type="text"]:focus, textarea:focus { border-color: #6366f1; }
+    .drop-zone { border: 2px dashed #334155; border-radius: 0.75rem; padding: 1.25rem; text-align: center; background: rgba(15, 23, 42, 0.4); margin-bottom: 1rem; cursor: pointer; }
+    .drop-zone p { font-size: 0.75rem; color: #cbd5e1; }
+    .drop-zone span { color: #818cf8; font-weight: 600; }
+    .btn-primary { width: 100%; background: #4f46e5; border: none; border-radius: 0.75rem; padding: 0.75rem; color: #fff; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-secondary { background: #334155; border: none; border-radius: 0.5rem; padding: 0.4rem 0.8rem; color: #e2e8f0; font-size: 0.75rem; cursor: pointer; }
+    .deck-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+    @media (min-width: 640px) { .deck-grid { grid-template-columns: 1fr 1fr; } }
+    .deck-item { background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .deck-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+    .deck-title { font-size: 0.875rem; font-weight: 600; color: #f8fafc; }
+    .card-box { min-height: 220px; background: #1e293b; border: 1px solid #334155; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; text-align: center; cursor: pointer; margin-bottom: 1rem; }
+    .card-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #818cf8; letter-spacing: 0.05em; }
+    .card-text { font-size: 1.1rem; line-height: 1.5; color: #f8fafc; margin: auto 0; }
+    .rating-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+    .btn-again { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 0.6rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+    .btn-good { background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #6ee7b7; padding: 0.6rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+    .status-msg { font-size: 0.75rem; color: #818cf8; text-align: center; margin-bottom: 0.5rem; display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo-box">
+        <div class="icon-badge">📖</div>
+        <div>
+          <h1>Syllabi</h1>
+          <p class="subtitle">Local-First Active Recall & Spaced Repetition</p>
+        </div>
+      </div>
+      <button id="backBtn" class="btn-secondary" style="display:none;" onclick="exitReview()">← Back</button>
+    </header>
+
+    <div id="mainView">
+      <div class="card-panel">
+        <div class="panel-title">✨ Create Deck from Document</div>
+        
+        <input type="text" id="deckTitle" placeholder="Deck Title (e.g., Computer Networking - Chapter 1)">
+        
+        <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+          <p>Tap here to pick a <span>.txt, .md, .pdf, or .docx</span> file</p>
+          <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx" style="display:none;" onchange="handleFileSelect(event)">
+        </div>
+
+        <div id="statusMsg" class="status-msg">Extracting text...</div>
+
+        <textarea id="inputText" rows="5" placeholder="Or paste raw text here...&#10;Parser detects:&#10;• Term: Definition&#10;• What is X? Answer to X&#10;• Headings followed by details"></textarea>
+
+        <button class="btn-primary" onclick="generateDeck()">Generate Flashcard Deck</button>
+      </div>
+
+      <div class="panel-title" style="font-size: 0.9rem; justify-content: space-between;">
+        <span>Your Study Decks</span>
+        <span id="deckCount" style="color:#64748b; font-weight:normal; font-size:0.75rem;">0 Decks</span>
+      </div>
+      <div id="decksList" class="deck-grid"></div>
+    </div>
+
+    <div id="reviewView" style="display:none;">
+      <div style="display:flex; justify-between: space-between; align-items:center; margin-bottom: 1rem; font-size:0.85rem; color:#94a3b8;">
+        <span id="reviewDeckTitle" style="font-weight:600; color:#e2e8f0;"></span>
+        <span id="cardProgress"></span>
+      </div>
+
+      <div class="card-box" onclick="toggleFlip()">
+        <div id="cardLabel" class="card-label">QUESTION</div>
+        <div id="cardText" class="card-text"></div>
+        <div style="font-size:0.7rem; color:#64748b;">Tap card to flip</div>
+      </div>
+
+      <div id="ratingControls" class="rating-row" style="display:none;">
+        <button class="btn-again" onclick="rateCard(0)">Again (1d)</button>
+        <button class="btn-good" onclick="rateCard(2)">Good (6d)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.160/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.160/pdf.worker.min.js';
+    }
+
+    let decks = JSON.parse(localStorage.getItem('syllabi_decks') || '[]');
+    let currentDeck = null;
+    let currentCardIdx = 0;
+    let isFlipped = false;
+
+    function saveDecks() {
+      localStorage.setItem('syllabi_decks', JSON.stringify(decks));
+      renderDecks();
+    }
+
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const status = document.getElementById('statusMsg');
+      status.style.display = 'block';
+      status.innerText = "Extracting text from " + file.name + "...";
+
+      const ext = file.name.split('.').pop().toLowerCase();
+      let extractedText = "";
+
+      try {
+        if (ext === 'txt' || ext === 'md') {
+          extractedText = await file.text();
+        } else if (ext === 'pdf' && window.pdfjsLib) {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          let pages = [];
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            pages.push(content.items.map(item => item.str).join(' '));
+          }
+          extractedText = pages.join('\n\n');
+        } else if (ext === 'docx' && window.mammoth) {
+          const arrayBuffer = await file.arrayBuffer();
+          const res = await mammoth.extractRawText({ arrayBuffer });
+          extractedText = res.value;
+        } else {
+          alert("Unsupported file format or library failed to load.");
+        }
+
+        if (extractedText.trim()) {
+          const textarea = document.getElementById('inputText');
+          textarea.value = textarea.value ? textarea.value + "\n\n" + extractedText : extractedText;
+          if (!document.getElementById('deckTitle').value) {
+            document.getElementById('deckTitle').value = file.name.replace(/\.[^/.]+$/, "");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error reading file: " + err.message);
+      } finally {
+        status.style.display = 'none';
+      }
+    }
+
+    function parseTextToCards(text) {
+      const cleaned = text.replace(/\r\n/g, '\n').replace(/([a-z,])\n([a-z])/gi, '$1 $2').trim();
+      const blocks = cleaned.split('\n').map(b => b.trim()).filter(b => b.length > 5);
+      const cards = [];
+
+      for (let i = 0; i < blocks.length; i++) {
+        let block = blocks[i];
+        const delim = /[:–=]| - |\b(?:is defined as|refers to|means)\b/i;
+
+        if (delim.test(block)) {
+          const parts = block.split(delim);
+          const term = parts[0].replace(/^[\d\.\-\*•\s]+/, '').trim();
+          const def = parts.slice(1).join(' ').trim();
+          if (term.length > 1 && def.length > 3) {
+            cards.push({ front: term, back: def });
+            continue;
+          }
+        }
+
+        if (block.endsWith('?')) {
+          const question = block.replace(/^[\d\.\-\*•\s]+/, '').trim();
+          const answer = (i + 1 < blocks.length && !blocks[i + 1].endsWith('?')) ? blocks[i + 1] : "Review in notes.";
+          cards.push({ front: question, back: answer });
+          if (i + 1 < blocks.length && !blocks[i + 1].endsWith('?')) i++;
+          continue;
+        }
+
+        if (block.length > 20) {
+          cards.push({ front: "Concept " + (cards.length + 1), back: block });
+        }
+      }
+      return cards;
+    }
+
+    function generateDeck() {
+      const text = document.getElementById('inputText').value.trim();
+      const title = document.getElementById('deckTitle').value.trim() || ("Deck " + (decks.length + 1));
+
+      if (!text) {
+        alert("Please paste text or upload a file first.");
+        return;
+      }
+
+      const cards = parseTextToCards(text);
+      if (cards.length === 0) {
+        alert("Could not extract cards. Use 'Term: Definition' or line breaks.");
+        return;
+      }
+
+      decks.unshift({ id: Date.now(), title, cards, createdAt: new Date().toLocaleDateString() });
+      saveDecks();
+      document.getElementById('inputText').value = "";
+      document.getElementById('deckTitle').value = "";
+    }
+
+    function deleteDeck(id) {
+      decks = decks.filter(d => d.id !== id);
+      saveDecks();
+    }
+
+    function renderDecks() {
+      const container = document.getElementById('decksList');
+      document.getElementById('deckCount').innerText = decks.length + " Decks";
+
+      if (decks.length === 0) {
+        container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:2rem; color:#64748b; border:1px dashed #334155; border-radius:0.75rem; font-size:0.8rem;">No study decks saved.</div>`;
+        return;
+      }
+
+      container.innerHTML = decks.map(d => `
+        <div class="deck-item">
+          <div>
+            <div class="deck-header">
+              <span class="deck-title">${d.title}</span>
+              <button onclick="deleteDeck(${d.id})" style="background:none; border:none; color:#64748b; cursor:pointer;">🗑️</button>
+            </div>
+            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom:1rem;">${d.cards.length} Flashcards</p>
+          </div>
+          <button class="btn-secondary" style="width:100%;" onclick="startReview(${d.id})">Start Review</button>
+        </div>
+      `).join('');
+    }
+
+    function startReview(id) {
+      currentDeck = decks.find(d => d.id === id);
+      currentCardIdx = 0;
+      isFlipped = false;
+      document.getElementById('mainView').style.display = 'none';
+      document.getElementById('reviewView').style.display = 'block';
+      document.getElementById('backBtn').style.display = 'block';
+      document.getElementById('reviewDeckTitle').innerText = currentDeck.title;
+      renderCard();
+    }
+
+    function renderCard() {
+      const card = currentDeck.cards[currentCardIdx];
+      document.getElementById('cardProgress').innerText = "Card " + (currentCardIdx + 1) + " of " + currentDeck.cards.length;
+      document.getElementById('cardLabel').innerText = isFlipped ? "ANSWER / EXPLANATION" : "QUESTION / CONCEPT";
+      document.getElementById('cardText').innerText = isFlipped ? card.back : card.front;
+      document.getElementById('ratingControls').style.display = isFlipped ? 'grid' : 'none';
+    }
+
+    function toggleFlip() {
+      isFlipped = !isFlipped;
+      renderCard();
+    }
+
+    function rateCard(rating) {
+      isFlipped = false;
+      if (currentCardIdx + 1 < currentDeck.cards.length) {
+        currentCardIdx++;
+        renderCard();
+      } else {
+        alert("Review session complete!");
+        exitReview();
+      }
+    }
+
+    function exitReview() {
+      document.getElementById('mainView').style.display = 'block';
+      document.getElementById('reviewView').style.display = 'none';
+      document.getElementById('backBtn').style.display = 'none';
+      renderDecks();
+    }
+
+    renderDecks();
+  </script>
+</body>
+</html>
